@@ -12,7 +12,7 @@ const mockProfile = {
   age: 25,
   image: "/test-image.jpg",
   bio: "Test bio",
-  images: ["/test-image.jpg", "/test-image2.jpg"],
+  images: ["/test-image2.jpg"], // 👈 ya no duplicamos "/test-image.jpg"
 };
 
 const renderWithTheme = (component: React.ReactElement) =>
@@ -161,5 +161,69 @@ describe("ProfileCard", () => {
 
     const after = img.getAttribute("src");
     expect(after).toBe(before);
+  });
+  it("does not navigate when disabled=true", () => {
+    renderWithTheme(<ProfileCard profile={mockProfile} disabled />);
+
+    const img = screen.getByAltText("Test User, 25") as HTMLImageElement;
+
+    // Mock de tamaño para detectar mitad derecha/izquierda
+    const rect = {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 200,
+      width: 200,
+      height: 400,
+      toJSON: () => ({}),
+    } as DOMRect;
+    jest.spyOn(img, "getBoundingClientRect").mockReturnValue(rect);
+
+    const before = img.getAttribute("src");
+
+    // Clicks a ambos lados NO deben cambiar la imagen si está disabled
+    fireEvent.click(img, { clientX: 160 }); // derecha (next)
+    fireEvent.click(img, { clientX: 20 }); // izquierda (prev)
+
+    const after = img.getAttribute("src");
+    expect(after).toBe(before);
+  });
+
+  it("recovers after an image error by navigating and loading the next image", async () => {
+    renderWithTheme(<ProfileCard profile={mockProfile} />);
+
+    // 1) Forzamos error en la imagen actual (índice 0)
+    const img = screen.getByAltText("Test User, 25") as HTMLImageElement;
+    fireEvent.error(img);
+
+    // aparece el fallback
+    expect(await screen.findByText(/Image unavailable/i)).toBeInTheDocument();
+
+    // 2) Click en el fallback (no en el <img>) → mockeamos su rect para navegar a la derecha
+    const fallbackBox = screen
+      .getByText(/Image unavailable/i)
+      .closest("div") as HTMLElement;
+
+    const rect = {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 200,
+      width: 200,
+      height: 400,
+      toJSON: () => ({}),
+    } as DOMRect;
+    jest.spyOn(fallbackBox, "getBoundingClientRect").mockReturnValue(rect);
+
+    // click lado derecho → next image (índice 1)
+    fireEvent.click(fallbackBox, { clientX: 160 });
+
+    // 3) vuelve a renderizarse la CardMedia con la nueva imagen
+    const imgAfter = await screen.findByAltText("Test User, 25");
+    expect(imgAfter.getAttribute("src")).toContain("/test-image2.jpg");
   });
 });

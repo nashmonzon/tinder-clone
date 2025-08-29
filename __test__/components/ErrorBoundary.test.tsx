@@ -1,10 +1,5 @@
 import React, { useState } from "react";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitForElementToBeRemoved,
-} from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 const BoomOnce: React.FC = () => {
