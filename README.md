@@ -62,7 +62,7 @@ Current coverage: ~94% ✅
 Clone the repo
 
 ```bash
-git clone https://github.com/<your-username>/tinder-clone.git
+git clone git@github.com:nashmonzon/tinder-clone.git
 cd tinder-clone
 ```
 
