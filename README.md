@@ -29,19 +29,21 @@ Includes swiping functionality, match modal, profile browsing, undo, refresh, an
 
 ## 📂 Project Structure
 
-- app/ # Next.js App Router
-  ├── api/ # Mock API routes
-  │ ├── interactions/route.ts
-  │ └── profiles/route.ts
-  ├── matches/ # Matches page
-  ├── layout.tsx # Root layout
-  └── page.tsx # Landing page
+```text
+app/                 # Next.js App Router
+ ├── api/            # Mock API routes
+ │   ├── interactions/route.ts
+ │   └── profiles/route.ts
+ ├── matches/        # Matches page
+ ├── layout.tsx      # Root layout
+ └── page.tsx        # Landing page
 
-- components/ # Reusable UI components
-- contexts/ # React Context (MatchContext)
-- hooks/ # Custom hooks
-- lib/ # API utils + error handling
-- tests/ # Unit + integration tests
+components/          # Reusable UI components
+contexts/            # React Context (MatchContext)
+hooks/               # Custom hooks
+lib/                 # API utils + error handling
+__tests__/           # Unit + integration tests
+```
 
 ---
 
