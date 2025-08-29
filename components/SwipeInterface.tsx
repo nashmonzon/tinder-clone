@@ -17,7 +17,7 @@ import ProfileCard from "./ProfileCard";
 import ActionButtons from "./ActionButtons";
 import MatchModal from "./MatchModal";
 import { useMatches } from "@/contexts/MatchContext";
-import { getProfiles, postInteraction, type Profile } from "@/lib/api";
+import { getProfiles, type Profile } from "@/lib/api";
 
 type SwipeAction = "like" | "dislike";
 
@@ -60,6 +60,7 @@ export default function SwipeInterface() {
         setProfiles(res.data);
         setError(null);
         setCurrentIndex(0);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setError("Failed to load profiles. Please try again.");
       } finally {

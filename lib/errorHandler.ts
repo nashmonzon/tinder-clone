@@ -1,7 +1,15 @@
+export interface Profile {
+  id: number;
+  name: string;
+  age: number;
+  image: string;
+  bio?: string;
+}
+
 export interface AppError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
   timestamp: number;
 }
 
@@ -27,54 +35,40 @@ export class StorageError extends Error {
 }
 
 export const errorHandler = {
-  // Log errors to console and external service
-  logError: (error: Error, context?: string) => {
+  logError: (error: Error, context?: string): void => {
     const errorInfo: AppError = {
       code: error.name,
       message: error.message,
       details: { context, stack: error.stack },
       timestamp: Date.now(),
     };
-
     console.error("App Error:", errorInfo);
-
-    // In production, send to error reporting service
-    if (process.env.NODE_ENV === "production") {
-      // reportToService(errorInfo)
-    }
   },
 
   withRetry: async <T>(
     operation: () => Promise<T>,
-    maxRetries: number = 3,
-    delay: number = 1000
+    maxRetries = 3,
+    delay = 1000
   ): Promise<T> => {
-    let lastError: Error;
-
+    let lastError: Error = new Error("Unknown error");
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await operation();
-      } catch (error) {
-        lastError = error as Error;
+      } catch (err) {
+        lastError = err as Error;
         errorHandler.logError(lastError, `Attempt ${attempt}/${maxRetries}`);
-
-        if (attempt === maxRetries) {
-          throw lastError;
-        }
-
-        // Exponential backoff
+        if (attempt === maxRetries) throw lastError;
         await new Promise((resolve) =>
           setTimeout(resolve, delay * Math.pow(2, attempt - 1))
         );
       }
     }
-
-    throw lastError!;
+    throw lastError;
   },
 
   withTimeout: async <T>(
     operation: () => Promise<T>,
-    timeoutMs: number = 10000
+    timeoutMs = 10000
   ): Promise<T> => {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(
@@ -82,73 +76,60 @@ export const errorHandler = {
         timeoutMs
       );
     });
-
     return Promise.race([operation(), timeoutPromise]);
   },
-  validateProfile: (profile: any): boolean => {
+
+  validateProfile: (profile: unknown): boolean => {
     if (!profile || typeof profile !== "object") {
       throw new ValidationError("Profile must be an object");
     }
+    const p = profile as Partial<Profile>;
 
-    if (!profile.id || typeof profile.id !== "number") {
+    if (!p.id || typeof p.id !== "number") {
       throw new ValidationError("Profile must have a valid ID", "id");
     }
-
-    if (
-      !profile.name ||
-      typeof profile.name !== "string" ||
-      profile.name.trim().length === 0
-    ) {
+    if (!p.name || typeof p.name !== "string" || p.name.trim().length === 0) {
       throw new ValidationError("Profile must have a valid name", "name");
     }
-
-    if (
-      !profile.age ||
-      typeof profile.age !== "number" ||
-      profile.age < 18 ||
-      profile.age > 100
-    ) {
+    if (!p.age || typeof p.age !== "number" || p.age < 18 || p.age > 100) {
       throw new ValidationError(
         "Profile must have a valid age (18-100)",
         "age"
       );
     }
-
-    if (!profile.image || typeof profile.image !== "string") {
+    if (!p.image || typeof p.image !== "string") {
       throw new ValidationError("Profile must have a valid image URL", "image");
     }
-
     return true;
   },
+
   safeLocalStorage: {
     getItem: (key: string): string | null => {
       try {
         return localStorage.getItem(key);
-      } catch (error) {
+      } catch {
         errorHandler.logError(
           new StorageError(`Failed to read from localStorage: ${key}`)
         );
         return null;
       }
     },
-
     setItem: (key: string, value: string): boolean => {
       try {
         localStorage.setItem(key, value);
         return true;
-      } catch (error) {
+      } catch {
         errorHandler.logError(
           new StorageError(`Failed to write to localStorage: ${key}`)
         );
         return false;
       }
     },
-
     removeItem: (key: string): boolean => {
       try {
         localStorage.removeItem(key);
         return true;
-      } catch (error) {
+      } catch {
         errorHandler.logError(
           new StorageError(`Failed to remove from localStorage: ${key}`)
         );

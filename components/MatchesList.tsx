@@ -14,8 +14,9 @@ import {
   DialogContent,
   DialogActions,
   Chip,
-  Grid,
+  GridLegacy as Grid,
 } from "@mui/material";
+
 import {
   Message,
   MoreVert,
