@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -9,6 +9,7 @@ import {
   Alert,
   CircularProgress,
   Fab,
+  Button,
 } from "@mui/material";
 import { Undo, Refresh, Favorite as FavoriteIcon } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
@@ -16,17 +17,7 @@ import ProfileCard from "./ProfileCard";
 import ActionButtons from "./ActionButtons";
 import MatchModal from "./MatchModal";
 import { useMatches } from "@/contexts/MatchContext";
-
-interface Profile {
-  id: number;
-  name: string;
-  age: number;
-  image: string;
-  bio: string;
-  images?: string[];
-  location?: string;
-  interests?: string[];
-}
+import { getProfiles, postInteraction, type Profile } from "@/lib/api";
 
 type SwipeAction = "like" | "dislike";
 
@@ -35,55 +26,6 @@ interface SwipeHistory {
   action: SwipeAction;
   timestamp: number;
 }
-
-const mockProfiles: Profile[] = [
-  {
-    id: 1,
-    name: "Sarah",
-    age: 21,
-    image: "/girl-1.jpg",
-    bio: "Love hiking and coffee ☕",
-    location: "2 miles away",
-    interests: ["hiking", "coffee", "photography"],
-  },
-  {
-    id: 2,
-    name: "Jessica",
-    age: 23,
-    image: "/girl-2.png",
-    images: ["/girl-24.png", "/girl-22.png", "/girl-23.png", "/girl-25.png"],
-    bio: "Artist and dog lover 🎨🐕",
-    location: "5 miles away",
-    interests: ["art", "dogs", "music"],
-  },
-  {
-    id: 3,
-    name: "Emma",
-    age: 25,
-    image: "/girl-3.jpg",
-    bio: "Yoga instructor and foodie 🧘‍♀️",
-    location: "3 miles away",
-    interests: ["yoga", "cooking", "travel"],
-  },
-  {
-    id: 4,
-    name: "Olivia",
-    age: 24,
-    image: "/girl-4.jpg",
-    bio: "Marketing professional who loves weekend adventures",
-    location: "1 mile away",
-    interests: ["marketing", "adventure", "wine"],
-  },
-  {
-    id: 5,
-    name: "Sophia",
-    age: 26,
-    image: "/girl-5.jpg",
-    bio: "Bookworm and coffee enthusiast",
-    location: "4 miles away",
-    interests: ["reading", "coffee", "writing"],
-  },
-];
 
 export default function SwipeInterface() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -95,32 +37,41 @@ export default function SwipeInterface() {
   const [matchedProfile, setMatchedProfile] = useState<Profile | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showUndoSnackbar, setShowUndoSnackbar] = useState(false);
+  const [pendingLike, setPendingLike] = useState<Profile | null>(null);
   const router = useRouter();
 
   const { matches, addMatch } = useMatches();
   const matchCount = matches.length;
 
+  const matchedIds = useMemo(
+    () => new Set(matches.map((m) => m.profile.id)),
+    [matches]
+  );
+  const visibleProfiles = useMemo(
+    () => profiles.filter((p) => !matchedIds.has(p.id)),
+    [profiles, matchedIds]
+  );
+
   useEffect(() => {
-    const loadProfiles = async () => {
+    const load = async () => {
       try {
         setLoading(true);
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setProfiles(mockProfiles);
+        const res = await getProfiles();
+        setProfiles(res.data);
         setError(null);
+        setCurrentIndex(0);
       } catch (err) {
         setError("Failed to load profiles. Please try again.");
       } finally {
         setLoading(false);
       }
     };
-
-    loadProfiles();
+    load();
   }, []);
 
-  const currentProfile = profiles[currentIndex];
-  const nextProfile = profiles[currentIndex + 1];
-  const hasMoreProfiles = currentIndex < profiles.length - 1;
+  const currentProfile = visibleProfiles[currentIndex];
+  const nextProfile = visibleProfiles[currentIndex + 1];
+  const hasMoreProfiles = currentIndex < visibleProfiles.length - 1;
 
   const handleSwipe = useCallback(
     (action: SwipeAction) => {
@@ -135,13 +86,13 @@ export default function SwipeInterface() {
       };
       setSwipeHistory((prev) => [...prev, historyEntry]);
 
-      const isMatch = action === "like";
-
-      if (isMatch) {
-        addMatch(currentProfile);
+      if (action === "like") {
+        // 👇 NO addMatch aquí
+        setPendingLike(currentProfile);
         setMatchedProfile(currentProfile);
         setShowMatch(true);
         setIsAnimating(false);
+        // 👈 NO avanzamos índice
       } else {
         setTimeout(() => {
           setCurrentIndex((prev) => prev + 1);
@@ -149,18 +100,13 @@ export default function SwipeInterface() {
         }, 200);
       }
     },
-    [currentProfile, isAnimating, addMatch]
+    [currentProfile, isAnimating]
   );
 
   const handleUndo = useCallback(() => {
     if (swipeHistory.length === 0 || isAnimating) return;
-
-    const lastAction = swipeHistory[swipeHistory.length - 1];
-
     setSwipeHistory((prev) => prev.slice(0, -1));
-
     setCurrentIndex((prev) => Math.max(0, prev - 1));
-
     setShowUndoSnackbar(true);
   }, [swipeHistory, isAnimating]);
 
@@ -174,9 +120,9 @@ export default function SwipeInterface() {
     setIsAnimating(false);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setProfiles([...mockProfiles]);
-    } catch (err) {
+      const res = await getProfiles();
+      setProfiles(res.data);
+    } catch {
       setError("Failed to refresh profiles. Please try again.");
     } finally {
       setLoading(false);
@@ -186,12 +132,23 @@ export default function SwipeInterface() {
   const handleMatchClose = useCallback(() => {
     setShowMatch(false);
     setMatchedProfile(null);
-    setCurrentIndex((prev) => prev + 1);
-  }, []);
+
+    if (pendingLike) {
+      addMatch(pendingLike);
+      setPendingLike(null);
+    }
+  }, [pendingLike, addMatch]);
 
   const handleSendMessage = useCallback(() => {
+    if (pendingLike) {
+      addMatch(pendingLike);
+      setPendingLike(null);
+    }
+    setShowMatch(false);
+    setMatchedProfile(null);
+
     router.push("/matches");
-  }, [router]);
+  }, [pendingLike, addMatch, router]);
 
   if (loading) {
     return (
@@ -221,7 +178,7 @@ export default function SwipeInterface() {
     );
   }
 
-  if (!hasMoreProfiles && !currentProfile) {
+  if (!showMatch && !hasMoreProfiles && !currentProfile) {
     return (
       <Box sx={{ textAlign: "center", py: 4 }}>
         <Typography variant="h5" gutterBottom>
@@ -234,6 +191,15 @@ export default function SwipeInterface() {
         <IconButton onClick={handleRefresh} color="primary" size="large">
           <Refresh />
         </IconButton>
+        <Button
+          aria-label="go-to-matches"
+          variant="contained"
+          startIcon={<FavoriteIcon />}
+          onClick={() => router.push("/matches")}
+          sx={{ ml: 1 }}
+        >
+          Go to Matches
+        </Button>
       </Box>
     );
   }
@@ -297,38 +263,38 @@ export default function SwipeInterface() {
       <Box sx={{ position: "fixed", bottom: 100, right: 16, zIndex: 1000 }}>
         {matchCount > 0 && (
           <Fab
+            aria-label="open-matches"
             size="small"
             color="primary"
             onClick={() => router.push("/matches")}
             sx={{ mb: 1, display: "block", position: "relative" }}
           >
             <FavoriteIcon />
-            {matchCount > 0 && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: -4,
-                  right: -4,
-                  bgcolor: "error.main",
-                  color: "white",
-                  borderRadius: "50%",
-                  width: 20,
-                  height: 20,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 12,
-                  fontWeight: "bold",
-                }}
-              >
-                {matchCount > 99 ? "99+" : matchCount}
-              </Box>
-            )}
+            <Box
+              sx={{
+                position: "absolute",
+                top: -4,
+                right: -4,
+                bgcolor: "error.main",
+                color: "white",
+                borderRadius: "50%",
+                width: 20,
+                height: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: "bold",
+              }}
+            >
+              {matchCount > 99 ? "99+" : matchCount}
+            </Box>
           </Fab>
         )}
 
         {swipeHistory.length > 0 && (
           <Fab
+            aria-label="undo"
             size="small"
             color="secondary"
             onClick={handleUndo}
@@ -340,6 +306,7 @@ export default function SwipeInterface() {
         )}
 
         <Fab
+          aria-label="refresh"
           size="small"
           color="primary"
           onClick={handleRefresh}
@@ -353,7 +320,7 @@ export default function SwipeInterface() {
         open={showMatch}
         profile={matchedProfile}
         onClose={handleMatchClose}
-        onSendMessage={handleSendMessage}
+        onSendMessage={() => handleSendMessage()} // firma simple
       />
 
       <Snackbar
@@ -369,7 +336,8 @@ export default function SwipeInterface() {
 
       <Box sx={{ textAlign: "center", mt: 2 }}>
         <Typography variant="caption" color="text.secondary">
-          {profiles.length - currentIndex} profiles remaining
+          {Math.max(0, visibleProfiles.length - currentIndex)} profiles
+          remaining
         </Typography>
       </Box>
     </Box>

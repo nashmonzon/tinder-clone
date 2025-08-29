@@ -26,6 +26,8 @@ export default function ActionButtons({
     >
       {/* Dislike Button */}
       <IconButton
+        aria-label="dislike"
+        data-testid="dislike-btn"
         onClick={onDislike}
         disabled={disabled}
         sx={{
@@ -51,6 +53,8 @@ export default function ActionButtons({
 
       {/* Like Button */}
       <IconButton
+        aria-label="like"
+        data-testid="like-btn"
         onClick={onLike}
         disabled={disabled}
         sx={{

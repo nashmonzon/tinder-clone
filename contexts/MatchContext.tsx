@@ -31,7 +31,7 @@ export interface Match {
     text: string;
     timestamp: number;
     fromUser: boolean;
-  };
+  } | null;
   isUnmatched: boolean;
 }
 
@@ -86,7 +86,7 @@ const matchReducer = (state: MatchState, action: MatchAction): MatchState => {
   }
 };
 
-interface MatchContextType {
+export interface MatchContextType {
   matches: Match[];
   loading: boolean;
   error: string | null;
