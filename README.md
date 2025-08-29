@@ -29,19 +29,19 @@ Includes swiping functionality, match modal, profile browsing, undo, refresh, an
 
 ## 📂 Project Structure
 
-app/ # Next.js App Router
-├── api/ # Mock API routes
-│ ├── interactions/route.ts
-│ └── profiles/route.ts
-├── matches/ # Matches page
-├── layout.tsx # Root layout
-└── page.tsx # Landing page
+- app/ # Next.js App Router
+  ├── api/ # Mock API routes
+  │ ├── interactions/route.ts
+  │ └── profiles/route.ts
+  ├── matches/ # Matches page
+  ├── layout.tsx # Root layout
+  └── page.tsx # Landing page
 
-components/ # Reusable UI components
-contexts/ # React Context (MatchContext)
-hooks/ # Custom hooks
-lib/ # API utils + error handling
-tests/ # Unit + integration tests
+- components/ # Reusable UI components
+- contexts/ # React Context (MatchContext)
+- hooks/ # Custom hooks
+- lib/ # API utils + error handling
+- tests/ # Unit + integration tests
 
 ---
 
@@ -81,17 +81,3 @@ Open http://localhost:3000 in your browser 🎉
 ## 📜 License
 
 This project is licensed under the MIT License.
-
-````bash
----
-
-### ✅ Próximos pasos
-
-1. Copiá este README.md en tu repo.
-2. Hacé commit y push:
-
-```bash
-git add README.md
-git commit -m "docs: add project README"
-git push origin main
-````
